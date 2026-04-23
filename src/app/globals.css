@@ -4,6 +4,8 @@
   --background: #edf4f4;
   --foreground: #0f172a;
   --panel: rgba(255, 255, 255, 0.82);
+  --font-body: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  --font-display: "Trebuchet MS", "Avenir Next Condensed", "Arial Narrow", sans-serif;
 }
 
 @theme inline {
