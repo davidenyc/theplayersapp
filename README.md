@@ -1,36 +1,137 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Athlete Platform
 
-## Getting Started
+Mobile-first team operations and athlete development platform built with Next.js, Supabase, Tailwind, and Recharts.
 
-First, run the development server:
+## What this app includes
+
+- Role-based login for coaches and players
+- Coach dashboard with daily survey compliance, readiness, and flags
+- Player dashboard with check-in flow and development goals
+- Team roster and player detail views
+- Survey builder with `survey_templates` and `survey_assignments`
+- Player check-in submission into `survey_responses`
+- Highlights, stats, goals, schedule, and messaging views
+
+## Stack
+
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- Supabase Auth, Postgres, Storage, Realtime
+- Recharts
+
+## Important project files
+
+- Schema: [supabase/schema/SCHEMA.sql](/Users/davideclarkson/Documents/athlete-platform/supabase/schema/SCHEMA.sql)
+- Seed script: [scripts/seed.ts](/Users/davideclarkson/Documents/athlete-platform/scripts/seed.ts)
+- Environment example: [.env.example](/Users/davideclarkson/Documents/athlete-platform/.env.example)
+
+## Local setup
+
+1. Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Copy the environment template and add your Supabase values:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Run the merged schema in the Supabase SQL editor:
 
-## Learn More
+```text
+supabase/schema/SCHEMA.sql
+```
 
-To learn more about Next.js, take a look at the following resources:
+4. Seed the project:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npx tsx scripts/seed.ts
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Start the app:
 
-## Deploy on Vercel
+```bash
+pnpm dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Vercel deploy
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Create these environment variables in Vercel:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+Recommended:
+
+- keep Preview and Production values in sync unless you intentionally want separate Supabase projects
+- deploy from the canonical repo root at `/Users/davideclarkson/Documents/athlete-platform`
+- after the first deploy, test both the login screen and the demo entry flow
+
+## Survey flow
+
+The survey system is backed by:
+
+- `survey_templates`
+- `survey_assignments`
+- `survey_responses`
+
+Current app behavior:
+
+- Coaches can create a template and assignment from the Surveys screen
+- Players submit daily wellness check-ins
+- Readiness score and flag reasons are computed before insert
+- Coach dashboard reads today’s compliance and flagged responses from live data
+
+## Seeded logins
+
+After running the seed script, these accounts are available:
+
+- `marcus.webb@northgatefc.com` / `Athlete123!` — Coach
+- `sofia.reyes@northgatefc.com` / `Athlete123!` — Coach
+- `t.okonkwo@northgatefc.com` / `Athlete123!` — Player
+- `k.brennan@northgatefc.com` / `Athlete123!` — Player
+- `j.hartley@northgatefc.com` / `Athlete123!` — Player
+
+## Storage buckets to create in Supabase
+
+- `avatars` — public
+- `highlights` — private, signed URLs
+- `thumbnails` — public
+
+## Realtime tables to enable
+
+Enable these in Supabase Realtime / replication:
+
+- `survey_responses`
+- `attendance`
+- `announcements`
+
+## Production notes
+
+- `pnpm exec tsc --noEmit` passes
+- `pnpm lint` passes
+- If `pnpm build` fails inside Codex because of SWC, rerun it in your normal local terminal
+
+## Current schema-backed areas
+
+These screens are wired to real Supabase data paths now:
+
+- Login
+- Dashboard
+- Roster
+- Check-in
+- Player detail: bio, goals, stats, highlights
+- Survey builder
+
+These areas still have room for deeper hardening:
+
+- fully generated Supabase database types instead of pragmatic casts
+- more complete profile/attendance/message CRUD
+- full production-safe storage handling for highlight uploads
