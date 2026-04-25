@@ -1,13 +1,12 @@
 import { Card } from "@/components/ui/Card";
-import { attendance, playerProfiles } from "@/lib/mock/data";
+import { attendance, playerProfiles, players } from "@/lib/mock/data";
 import type { Event } from "@/types";
 
-type AttendanceTableProps = {
-  event: Event;
-};
-
-export function AttendanceTable({ event }: AttendanceTableProps) {
-  const rows = attendance.filter((entry) => entry.event_id === event.id).slice(0, 10);
+export function AttendanceTable({ event, teamId }: { event: Event; teamId?: string }) {
+  const rows = attendance.filter((entry) => entry.event_id === event.id).filter((entry) => {
+    if (!teamId) return true;
+    return players.some((player) => player.team_id === teamId && player.user_id === entry.user_id);
+  });
 
   return (
     <Card>

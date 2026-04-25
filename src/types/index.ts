@@ -1,4 +1,5 @@
 export type Role = "admin" | "coach" | "player";
+export type AppMode = "standard" | "practice" | "gameday";
 
 export interface Organization {
   id: string;
@@ -13,6 +14,7 @@ export interface Team {
   name: string;
   sport: string;
   season: string;
+  age_group: "u19" | "youth";
   created_at: string;
 }
 
@@ -235,6 +237,17 @@ export interface Evaluation {
   created_at: string;
 }
 
+export interface InjuryLog {
+  id: string;
+  player_user_id: string;
+  body_area: string;
+  injury_type: string;
+  date_of_injury: string;
+  status: "active" | "in_recovery" | "cleared";
+  return_to_play_date?: string;
+  notes?: string;
+}
+
 type TableDefinition<Row, Insert = Row, Update = Partial<Insert>> = {
   Row: Row;
   Insert: Insert;
@@ -264,6 +277,7 @@ export interface Database {
       highlights: TableDefinition<Highlight>;
       coach_notes: TableDefinition<CoachNote>;
       evaluations: TableDefinition<Evaluation>;
+      injury_logs: TableDefinition<InjuryLog>;
     };
     Functions: Record<string, never>;
     Enums: Record<string, never>;

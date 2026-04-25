@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, Role } from "@/types";
@@ -22,7 +15,6 @@ type AuthState = {
 };
 
 const STORAGE_KEY = "athlete-platform-auth";
-
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -35,11 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as {
-          profile: Profile | null;
-          teamId: string | null;
-          isDemo?: boolean;
-        };
+        const parsed = JSON.parse(raw) as { profile: Profile | null; teamId: string | null; isDemo?: boolean };
         setProfile(parsed.profile);
         setTeamId(parsed.teamId);
         setIsDemo(Boolean(parsed.isDemo));
@@ -54,46 +42,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) return;
 
-      const { data: nextProfileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
+      const { data: nextProfileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
       const nextProfile = (nextProfileData ?? null) as Profile | null;
-
       if (!nextProfile) return;
 
       let nextTeamId: string | null = null;
       if (nextProfile.role === "coach") {
-        const { data: coachData } = await supabase
-          .from("coach_profiles")
-          .select("team_id")
-          .eq("user_id", nextProfile.id)
-          .single();
-        const coach = (coachData ?? null) as { team_id: string } | null;
-        nextTeamId = coach?.team_id ?? null;
+        const { data: coachData } = await supabase.from("coach_profiles").select("team_id").eq("user_id", nextProfile.id).single();
+        nextTeamId = ((coachData ?? null) as { team_id: string } | null)?.team_id ?? null;
       } else if (nextProfile.role === "player") {
-        const { data: playerData } = await supabase
-          .from("player_profiles")
-          .select("team_id")
-          .eq("user_id", nextProfile.id)
-          .single();
-        const player = (playerData ?? null) as { team_id: string } | null;
-        nextTeamId = player?.team_id ?? null;
+        const { data: playerData } = await supabase.from("player_profiles").select("team_id").eq("user_id", nextProfile.id).single();
+        nextTeamId = ((playerData ?? null) as { team_id: string } | null)?.team_id ?? null;
       }
 
       setProfile(nextProfile);
       setTeamId(nextTeamId);
       setIsDemo(false);
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ profile: nextProfile, teamId: nextTeamId, isDemo: false }),
-      );
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ profile: nextProfile, teamId: nextTeamId, isDemo: false }));
     });
 
-    return () => {
-      data.subscription.unsubscribe();
-    };
+    return () => data.subscription.unsubscribe();
   }, []);
 
   const value = useMemo<AuthState>(
@@ -105,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthState: (next) => {
         setProfile(next.profile);
         setTeamId(next.teamId);
-        const nextIsDemo = Boolean(next.profile?.email.includes("@northgatefc.demo"));
+        const nextIsDemo = Boolean(next.profile?.email.includes("@club.demo"));
         setIsDemo(nextIsDemo);
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...next, isDemo: nextIsDemo }));
       },
@@ -124,10 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }
 

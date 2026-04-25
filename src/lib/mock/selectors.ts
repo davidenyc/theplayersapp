@@ -1,4 +1,4 @@
-import { addDays, formatISO, isToday, parseISO } from "date-fns";
+import { formatISO, isToday, parseISO } from "date-fns";
 
 import {
   announcements,
@@ -9,62 +9,70 @@ import {
   events,
   goals,
   highlights,
+  matchDayPlan,
   playerProfiles,
   players,
   records,
   stats,
   surveyAssignment,
+  surveyAssignments,
   surveyResponses,
   surveyTemplate,
+  surveyTemplates,
   team,
+  teamU19,
 } from "@/lib/mock/data";
 import { getDemoResponses } from "@/lib/demo/state";
-import type { PlayerListItem, Profile, ReadinessCardData, SurveyResponse } from "@/types";
+import type { PlayerListItem, Profile, ReadinessCardData, SurveyResponse, Team } from "@/types";
 
-export function getCurrentProfile(role: "coach" | "player" = "coach"): Profile {
-  return role === "coach" ? coachProfiles[0] : playerProfiles[0];
+function rosterProfiles(teamId = teamU19.id) {
+  return playerProfiles.filter((profile) => players.some((player) => player.user_id === profile.id && player.team_id === teamId));
 }
 
-export function getLatestResponsesMap() {
-  const latest = new Map<string, SurveyResponse>();
-  const combined = [...getDemoResponses(), ...surveyResponses];
+function rosterPlayers(teamId = teamU19.id) {
+  return players.filter((player) => player.team_id === teamId);
+}
 
-  for (const response of combined.sort((a, b) =>
-    b.submitted_at.localeCompare(a.submitted_at),
-  )) {
-    if (!latest.has(response.player_id)) {
-      latest.set(response.player_id, response);
-    }
+function teamResponses(teamId = teamU19.id) {
+  const rosterIds = new Set(rosterProfiles(teamId).map((profile) => profile.id));
+  return [...getDemoResponses(), ...surveyResponses].filter((response) => rosterIds.has(response.player_id));
+}
+
+export function getCurrentProfile(role: "coach" | "player" = "coach"): Profile {
+  return role === "coach" ? coachProfiles[0] : rosterProfiles(teamU19.id)[0];
+}
+
+export function getLatestResponsesMap(teamId = teamU19.id) {
+  const latest = new Map<string, SurveyResponse>();
+  const combined = teamResponses(teamId);
+
+  for (const response of combined.sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))) {
+    if (!latest.has(response.player_id)) latest.set(response.player_id, response);
   }
 
   return latest;
 }
 
-export function getRoster(): PlayerListItem[] {
-  const latest = getLatestResponsesMap();
-  return playerProfiles.map((profile) => ({
+export function getRoster(teamId = teamU19.id): PlayerListItem[] {
+  const latest = getLatestResponsesMap(teamId);
+  return rosterProfiles(teamId).map((profile) => ({
     profile,
-    playerProfile: players.find((player) => player.user_id === profile.id)!,
+    playerProfile: rosterPlayers(teamId).find((player) => player.user_id === profile.id)!,
     latestResponse: latest.get(profile.id),
   }));
 }
 
-export function getUpcomingEvent() {
-  return [...events].sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+export function getUpcomingEvent(teamId = teamU19.id) {
+  return events.filter((event) => event.team_id === teamId).sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
 }
 
-export function getCoachDashboardData() {
-  const roster = getRoster();
-  const todayResponses = [...getDemoResponses(), ...surveyResponses].filter((response) =>
-    isToday(parseISO(response.submitted_at)),
-  );
+export function getCoachDashboardData(teamId = teamU19.id) {
+  const roster = getRoster(teamId);
+  const todayResponses = teamResponses(teamId).filter((response) => isToday(parseISO(response.submitted_at)));
   const submittedIds = new Set(todayResponses.map((response) => response.player_id));
   const flagged = todayResponses.filter((response) => response.flagged);
-  const noResponseCount = roster.length - todayResponses.length;
-  const nextEvent = getUpcomingEvent();
-  const noResponseAttendance = attendance.filter(
-    (entry) => entry.event_id === nextEvent?.id && entry.status === "no_response",
-  ).length;
+  const nextEvent = getUpcomingEvent(teamId);
+  const noResponseAttendance = attendance.filter((entry) => entry.event_id === nextEvent?.id && entry.status === "no_response").length;
 
   const readinessCards: ReadinessCardData[] = roster
     .map((entry) => ({
@@ -87,38 +95,22 @@ export function getCoachDashboardData() {
     todayResponses,
     flagged,
     statCards: [
-      {
-        label: "Check-in Compliance",
-        value: `${Math.round((todayResponses.length / roster.length) * 100)}%`,
-        delta: "+8% vs last week",
-      },
-      {
-        label: "Flagged Players",
-        value: `${flagged.length}`,
-        delta: flagged.length > 5 ? "+2 today" : "-1 today",
-      },
-      {
-        label: "No RSVP Yet",
-        value: `${noResponseAttendance}`,
-        delta: "Before Saturday match",
-      },
-      {
-        label: "Next Event",
-        value: nextEvent?.type === "game" ? "Match Day" : "Training",
-        delta: nextEvent ? nextEvent.title : "No event",
-      },
+      { label: "Check-in compliance", value: `${Math.round((todayResponses.length / Math.max(roster.length, 1)) * 100)}%`, delta: "Based on today&apos;s responses." },
+      { label: "Flagged players", value: `${flagged.length}`, delta: flagged.length > 0 ? "Needs review today." : "No major flags." },
+      { label: "No RSVP yet", value: `${noResponseAttendance}`, delta: "Before the next event." },
+      { label: "Next event", value: nextEvent?.type === "game" ? "Match day" : "Training", delta: nextEvent?.title ?? "Nothing scheduled." },
     ],
   };
 }
 
-export function getPlayerDashboardData(profileId = playerProfiles[0].id) {
-  const latestResponse = [...getDemoResponses(), ...surveyResponses]
+export function getPlayerDashboardData(profileId = rosterProfiles(teamU19.id)[0].id, teamId?: string) {
+  const player = players.find((entry) => entry.user_id === profileId);
+  const resolvedTeamId = teamId ?? player?.team_id ?? teamU19.id;
+  const latestResponse = teamResponses(resolvedTeamId)
     .filter((response) => response.player_id === profileId)
     .sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))[0];
-  const nextEvent = getUpcomingEvent();
-  const note = coachNotes
-    .filter((entry) => entry.player_id === profileId && entry.is_shared)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const nextEvent = getUpcomingEvent(resolvedTeamId);
+  const note = coachNotes.filter((entry) => entry.player_id === profileId && entry.is_shared).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
 
   return {
     latestResponse,
@@ -126,14 +118,14 @@ export function getPlayerDashboardData(profileId = playerProfiles[0].id) {
     note,
     goals: goals.filter((goal) => goal.player_id === profileId),
     profile: playerProfiles.find((entry) => entry.id === profileId)!,
-    playerProfile: players.find((entry) => entry.user_id === profileId)!,
+    playerProfile: player ?? rosterPlayers(resolvedTeamId)[0],
   };
 }
 
-export function getSurveyResponseDashboard() {
-  const roster = getRoster();
-  const latest = getLatestResponsesMap();
-  const compliance = Math.round((latest.size / roster.length) * 100);
+export function getSurveyResponseDashboard(teamId = teamU19.id) {
+  const roster = getRoster(teamId);
+  const latest = getLatestResponsesMap(teamId);
+  const compliance = Math.round((latest.size / Math.max(roster.length, 1)) * 100);
 
   const cards = roster.map((entry) => {
     const response = latest.get(entry.profile.id);
@@ -146,25 +138,30 @@ export function getSurveyResponseDashboard() {
     };
   });
 
-  const trendData = playerProfiles.slice(0, 5).flatMap((profile) =>
-    [...getDemoResponses(), ...surveyResponses]
-      .filter((response) => response.player_id === profile.id)
+  const trendData = roster.slice(0, 5).flatMap((profile) =>
+    teamResponses(teamId)
+      .filter((response) => response.player_id === profile.profile.id)
       .slice(0, 7)
       .map((response) => ({
-        date: formatISO(addDays(parseISO(response.submitted_at), 0), {
-          representation: "date",
-        }),
+        date: formatISO(parseISO(response.submitted_at), { representation: "date" }),
         value: response.readiness_score ?? 0,
-        player: profile.full_name,
+        player: profile.profile.full_name,
       })),
   );
 
-  return { cards, compliance, trendData, template: surveyTemplate, assignment: surveyAssignment };
+  return {
+    cards,
+    compliance,
+    trendData,
+    template: surveyTemplates.find((entry) => entry.team_id === teamId) ?? surveyTemplate,
+    assignment: surveyAssignments.find((entry) => entry.team_id === teamId) ?? surveyAssignment,
+  };
 }
 
-export function getProfilePageData(profileId = playerProfiles[0].id) {
+export function getProfilePageData(profileId = rosterProfiles(teamU19.id)[0].id) {
+  const player = players.find((entry) => entry.user_id === profileId)!;
   return {
-    player: players.find((entry) => entry.user_id === profileId)!,
+    player,
     profile: playerProfiles.find((entry) => entry.id === profileId)!,
     goals: goals.filter((entry) => entry.player_id === profileId),
     highlights: highlights.filter((entry) => entry.player_id === profileId),
@@ -175,26 +172,32 @@ export function getProfilePageData(profileId = playerProfiles[0].id) {
   };
 }
 
-export function getHighlightsPageData() {
-  return [...highlights].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
+export function getHighlightsPageData(teamId = teamU19.id) {
+  const rosterIds = new Set(rosterPlayers(teamId).map((player) => player.user_id));
+  return highlights.filter((entry) => rosterIds.has(entry.player_id)).sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
 }
 
-export function getSchedulePageData() {
+export function getSchedulePageData(teamId = teamU19.id) {
   return {
-    events,
-    attendance,
+    events: events.filter((event) => event.team_id === teamId),
+    attendance: attendance.filter((entry) => getUpcomingEvent(teamId)?.id === entry.event_id || events.some((event) => event.id === entry.event_id && event.team_id === teamId)),
+    matchDayPlan,
   };
 }
 
-export function getMessagesPageData() {
-  return announcements;
+export function getMessagesPageData(teamId = teamU19.id) {
+  return announcements.filter((item) => item.team_id === teamId);
 }
 
-export function getTeamContext() {
-  return { team, surveyTemplate, surveyAssignment };
+export function getTeamContext(teamId = teamU19.id) {
+  return {
+    team: teamId === teamU19.id ? teamU19 : team,
+    surveyTemplate: surveyTemplates.find((entry) => entry.team_id === teamId) ?? surveyTemplate,
+    surveyAssignment: surveyAssignments.find((entry) => entry.team_id === teamId) ?? surveyAssignment,
+  };
 }
 
-export function getPlayerReadinessTrend(profileId = playerProfiles[0].id) {
+export function getPlayerReadinessTrend(profileId = rosterProfiles(teamU19.id)[0].id) {
   return [...getDemoResponses(), ...surveyResponses]
     .filter((response) => response.player_id === profileId)
     .sort((a, b) => a.submitted_at.localeCompare(b.submitted_at))
@@ -205,10 +208,9 @@ export function getPlayerReadinessTrend(profileId = playerProfiles[0].id) {
     }));
 }
 
-export function getTeamReadinessTrend() {
+export function getTeamReadinessTrend(teamId = teamU19.id) {
   const grouped = new Map<string, { total: number; count: number }>();
-
-  for (const response of [...getDemoResponses(), ...surveyResponses]) {
+  for (const response of teamResponses(teamId)) {
     const key = formatISO(parseISO(response.submitted_at), { representation: "date" }).slice(5);
     const current = grouped.get(key) ?? { total: 0, count: 0 };
     current.total += response.readiness_score ?? 0;
@@ -217,10 +219,7 @@ export function getTeamReadinessTrend() {
   }
 
   return [...grouped.entries()]
-    .map(([date, value]) => ({
-      date,
-      value: Math.round(value.total / value.count),
-    }))
+    .map(([date, value]) => ({ date, value: Math.round(value.total / value.count) }))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-14);
 }

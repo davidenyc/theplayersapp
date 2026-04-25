@@ -13,21 +13,18 @@ export function usePlayers(teamId?: string | null, isDemo = false) {
 
   useEffect(() => {
     let cancelled = false;
-
     async function load() {
       if (isDemo) {
-        setPlayers(getRoster());
+        setPlayers(getRoster(teamId ?? undefined));
         setError(null);
         setLoading(false);
         return;
       }
-
       if (!teamId) {
         setPlayers([]);
         setLoading(false);
         return;
       }
-
       try {
         setLoading(true);
         const roster = await getRosterForTeam(teamId);
@@ -36,18 +33,12 @@ export function usePlayers(teamId?: string | null, isDemo = false) {
           setError(null);
         }
       } catch (nextError) {
-        if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load roster.");
-        }
+        if (!cancelled) setError(nextError instanceof Error ? nextError.message : "Failed to load roster.");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
-
     void load();
-
     return () => {
       cancelled = true;
     };

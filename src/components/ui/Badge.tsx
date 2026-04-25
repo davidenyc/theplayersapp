@@ -1,6 +1,7 @@
 type BadgeProps = {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   tone?: "neutral" | "success" | "warning" | "danger" | "info";
+  label?: string;
 };
 
 const toneClasses: Record<NonNullable<BadgeProps["tone"]>, string> = {
@@ -11,10 +12,10 @@ const toneClasses: Record<NonNullable<BadgeProps["tone"]>, string> = {
   info: "bg-sky-100 text-sky-700",
 };
 
-export function Badge({ children, tone = "neutral" }: BadgeProps) {
+export function Badge({ children, tone = "neutral", label }: BadgeProps) {
   return (
     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${toneClasses[tone]}`}>
-      {children}
+      {label ?? children}
     </span>
   );
 }
