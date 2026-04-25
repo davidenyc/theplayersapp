@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { TopNav } from "@/components/layout/TopNav";
 import { CheckInForm } from "@/components/player/CheckInForm";
 import { useAppMode } from "@/components/providers/AppModeProvider";
 
-export default function CheckinPage() {
+function CheckinContent() {
   const searchParams = useSearchParams();
   const { mode } = useAppMode();
   const isPrematch = searchParams.get("context") === "prematch";
@@ -18,8 +19,20 @@ export default function CheckinPage() {
           Match day is active. Complete your pre-match check-in before kickoff.
         </div>
       ) : null}
-      <TopNav title={isPrematch ? "Pre-Match Check-In" : "Daily Check-In"} subtitle={isPrematch ? "Get ready before kickoff." : "Complete today&apos;s player check-in."} userName="Liam Carter" />
+      <TopNav
+        title={isPrematch ? "Pre-Match Check-In" : "Daily Check-In"}
+        subtitle={isPrematch ? "Get ready before kickoff." : "Complete today&apos;s player check-in."}
+        userName="Liam Carter"
+      />
       <CheckInForm />
     </div>
+  );
+}
+
+export default function CheckinPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading check-in...</div>}>
+      <CheckinContent />
+    </Suspense>
   );
 }
